@@ -1,0 +1,69 @@
+# === Android/Compose build outputs ===
+/build/
+/captures/
+/.externalNativeBuild/
+/cxx/
+
+# === Gradle ===
+.gradle/
+/buildSrc/build/
+/.gradle-wrapper.jar
+
+# === IDE / IntelliJ ===
+*.iml
+/.idea/caches/
+/.idea/libraries/
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.navigation/
+/.scratches/
+
+# === Local config ===
+local.properties
+
+# === Android artifacts ===
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.so
+
+# === Jetpack Compose previews ===
+.compose/
+
+# === Native / NDK ===
+obj/
+
+# === Keystore ===
+*.jks
+*.keystore
+
+# === Google Services / Firebase ===
+google-services.json
+*.plist
+firebase-debug.log
+
+# === Proguard / R8 ===
+proguard/
+proguard-rules.pro
+
+# === Lint ===
+lint/intermediates/
+lint/generated/
+
+# === Test coverage ===
+coverage/
+
+# === Misc ===
+*.log
+*.orig
+*.rej
+*.tmp
+*.swp
+
+# === OS-specific ===
+.DS_Store
+Thumbs.db
