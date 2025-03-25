@@ -1,6 +1,7 @@
 package com.zzh.garbagedetection.ui.components
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -27,80 +30,65 @@ import androidx.core.graphics.scale
 fun ScaledDetectionImage(
     bitmap: Bitmap,
     detections: List<Detection>,
-    threshold: Float = 0.5f,
+    threshold: Float,
     modifier: Modifier = Modifier
 ) {
     // 获取屏幕宽度（px）
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val density = LocalDensity.current
-    val targetWidthPx = with(density) { screenWidth.toPx() }.toInt()
-    val aspectRatio = bitmap.height.toFloat() / bitmap.width
 
-    // 计算目标尺寸
-    val scaledBitmap = remember(bitmap) {
-        bitmap.scale(targetWidthPx, (targetWidthPx * aspectRatio).toInt())
-    }
-
-    DetectionOverlay(
-        bitmap = scaledBitmap,
-        detections = detections,
-        threshold = threshold,
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f / aspectRatio)
-    )
-}
-
-@Composable
-fun DetectionOverlay(
-    bitmap: Bitmap,
-    detections: List<Detection>,
-    threshold: Float = 0.5f,
-    modifier: Modifier = Modifier
-) {
-    // 保持图片比例
     val aspect = bitmap.width.toFloat() / bitmap.height
+    val targetWidthPx = with(density) { screenWidth.toPx() }.toInt()
+    val targetHeightPx = (targetWidthPx / aspect).toInt()
+
+    val resizedBitmap = bitmap.scale(targetWidthPx, targetHeightPx)
+
+    // 保持图片比例
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(aspect)
     ) {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = resizedBitmap.asImageBitmap(),
             contentDescription = null,
             contentScale = ContentScale.FillWidth,
             modifier = Modifier.matchParentSize()
         )
         Canvas(modifier = Modifier.matchParentSize()) {
+            val stroke = 4.dp.toPx()
+            val paint = Paint().apply {
+                color = Color.Red
+                style = PaintingStyle.Stroke
+                strokeWidth = stroke
+            }
+            val textPaint = android.graphics.Paint().apply {
+                color = android.graphics.Color.RED
+                textSize = 32f
+            }
             detections.forEach { det ->
                 if (det.score >= threshold) {
-                    val box = det.boundingBox
-                    val left = box.left * size.width
-                    val top = box.top * size.height
-                    val width = (box.right - box.left) * size.width
-                    val height = (box.bottom - box.top) * size.height
+                    val l = det.boundingBox.left * size.width
+                    val t = det.boundingBox.top * size.height
+                    val r = det.boundingBox.right * size.width
+                    val b = det.boundingBox.bottom * size.height
 
                     drawRect(
-                        color = Color.Red,
-                        topLeft = Offset(left, top),
-                        size = Size(width, height),
-                        style = Stroke(width = 4.dp.toPx())
+                        topLeft = Offset(l, t),
+                        size = Size(r - l, b - t),
+                        style = Stroke(width = stroke),
+                        color = Color.Red
                     )
-
-                    drawContext.canvas.nativeCanvas.apply {
-                        drawText(
-                            "${det.label} ${(det.score * 100).toInt()}%",
-                            left,
-                            top - 4.dp.toPx(),
-                            android.graphics.Paint().apply {
-                                color = android.graphics.Color.RED
-                                textSize = 32f
-                                style = android.graphics.Paint.Style.FILL
-                            }
-                        )
-                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "${det.label} ${(det.score * 100).toInt()}%",
+                        l,
+                        t - stroke,
+                        textPaint
+                    )
                 }
             }
+            Log.d("Detection Res Drawing", "ScaledDetectionImage: Detection drawing done")
         }
     }
 }
