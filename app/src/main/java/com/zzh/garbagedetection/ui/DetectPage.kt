@@ -2,7 +2,6 @@ package com.zzh.garbagedetection.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,17 +43,6 @@ import com.zzh.garbagedetection.detection.detectImageYolo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.ByteBuffer
-import java.security.MessageDigest
-
-fun Bitmap.computeHash(): String {
-    val buffer = ByteBuffer.allocate(byteCount)
-    copyPixelsToBuffer(buffer)
-    val bytes = buffer.array()
-    return MessageDigest.getInstance("MD5").digest(bytes).joinToString("") {
-        "%02x".format(it)
-    }
-}
 
 @Composable
 fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Modifier = Modifier) {

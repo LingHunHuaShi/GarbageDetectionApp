@@ -30,7 +30,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             GarbageDetectionTheme {
                 val navController = rememberNavController()
-                val context = LocalContext.current
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
