@@ -14,7 +14,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val modelName = repo.settingsFlow.map { it[SettingsPreferences.KEY_MODEL_NAME] ?: ModelNameEnums.GOOGLE.label }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ModelNameEnums.GOOGLE.label)
 
+    val threshold = repo.settingsFlow.map { it[SettingsPreferences.KEY_THRESHOLD] ?: 0.5f }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0.5f)
+
     fun setModelName(modelName: String) = viewModelScope.launch {
         repo.updateSetting(SettingsPreferences.KEY_MODEL_NAME, modelName)
+    }
+
+    fun setThreshold(threshold: Float) = viewModelScope.launch {
+        repo.updateSetting(SettingsPreferences.KEY_THRESHOLD, threshold)
     }
 }

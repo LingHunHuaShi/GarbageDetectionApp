@@ -13,4 +13,8 @@ class SettingsRepository(context: Context) {
     suspend fun updateSetting(key: Preferences.Key<String>, value: String) {
         dataStore.edit { prefs -> prefs[key] = value }
     }
+
+    suspend fun updateSetting(key: Preferences.Key<Float>, value: Float) {
+        dataStore.edit { prefs -> prefs[key] = value }
+    }
 }

@@ -8,17 +8,18 @@ import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.flex.FlexDelegate
 import org.tensorflow.lite.support.common.FileUtil
+import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 
 object YoloDetectionUtils {
-    const val MODEL_PATH = "ssd_model.tflite"
+    const val MODEL_PATH = "best_float32.tflite"
     val INPUT_DTYPE = DataType.FLOAT32
     const val INPUT_SIZE = 640
 }
 
-fun detectImageYolo(inputImage: Bitmap, context: Context): List<Detection> {
+fun detectImageYolo(inputImage: Bitmap, threshold: Float = 0.5f, context: Context): List<Detection> {
     val modelBuffer = FileUtil.loadMappedFile(context, YoloDetectionUtils.MODEL_PATH)
     var tensorImage = TensorImage(YoloDetectionUtils.INPUT_DTYPE)
     tensorImage.load(inputImage)
@@ -26,6 +27,7 @@ fun detectImageYolo(inputImage: Bitmap, context: Context): List<Detection> {
 
     val imageProcessor = ImageProcessor.Builder()
         .add(ResizeOp(inputSize, inputSize, ResizeOp.ResizeMethod.BILINEAR))
+        .add(NormalizeOp(0f, 255f))
         .build()
 
     tensorImage = imageProcessor.process(tensorImage)
@@ -37,79 +39,39 @@ fun detectImageYolo(inputImage: Bitmap, context: Context): List<Detection> {
     val interpreter = Interpreter(modelBuffer, tfliteOptions)
     val inputBuffer = tensorImage.buffer
 
-    // Create output map
-    val N = interpreter.getOutputTensor(1).shape()[1]
-    val outputBoxes   = Array(1) { Array(N) { FloatArray(4) } }
-    val outputClasses = Array(1) { FloatArray(N) }
-    val outputScores  = Array(1) { FloatArray(N) }
-    val outputCount   = IntArray(1)
-
-    val outputMap = mapOf(
-        0 to outputScores,
-        1 to outputBoxes,
-        2 to outputCount,
-        3 to outputClasses
-    )
 
     for (i in 0 until interpreter.outputTensorCount) {
         val tensor = interpreter.getOutputTensor(i)
         Log.i("TFLite", "Output[$i] name=${tensor.name()} shape=${tensor.shape().contentToString()} dtype=${tensor.dataType()}")
     }
 
+    // Create output buffer
+    val outputBuffer = Array(1) { Array(300) { FloatArray(6) } }
+
     //Run inference
     Log.d("ObjectDetector", "Inference start")
-    interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
+    interpreter.run(inputBuffer, outputBuffer)
     Log.d("ObjectDetector", "Inference done")
 
-    //Parse results
-    val detections = outputCount[0].toInt()
-    for (i in 0 until detections) {
-        val box = outputBoxes[0][i]
-        val label = outputClasses[0][i].toInt()
-        val score = outputScores[0][i]
-        Log.d(
-            "ObjectDetector",
-            "Detected class=$label score=${"%.2f".format(score)} box=${box.contentToString()}"
-        )
+    val labels = listOf("可回收垃圾","有害垃圾","湿垃圾","干垃圾")
+    val detectionList = mutableListOf<Detection>()
+
+    for (i in 0 until 300) {
+        val score = outputBuffer[0][i][4]
+        if (score >= threshold) {
+            val xMin = outputBuffer[0][i][0]
+            val yMin = outputBuffer[0][i][1]
+            val xMax = outputBuffer[0][i][2]
+            val yMax = outputBuffer[0][i][3]
+            val classId = outputBuffer[0][i][5].toInt()
+
+            val boundingBox = RectF(xMin, yMin, xMax, yMax)
+            detectionList += Detection(boundingBox = boundingBox, label = labels[classId], score = score)
+        }
     }
-    Log.d("ObjectDetector", "Inference complete: $detections results")
-    val detectionList = mapOutputsToYoloDetections(
-        outputBoxes = outputBoxes,
-        outputClasses = outputClasses,
-        outputScores = outputScores,
-        outputCount = outputCount,
-        labels = listOf("可回收垃圾","有害垃圾","湿垃圾","干垃圾")
-    )
-    interpreter.close()
+    Log.d("YOLO output", "Detection number: ${detectionList.size}")
+    for (item in detectionList) {
+        Log.d("YOLO output", "Detection: $item")
+    }
     return detectionList
-}
-
-fun mapOutputsToYoloDetections(
-    outputBoxes: Array<Array<FloatArray>>,
-    outputClasses: Array<FloatArray>,
-    outputScores: Array<FloatArray>,
-    outputCount: IntArray,
-    labels: List<String>
-): List<Detection> {
-    val detections = mutableListOf<Detection>()
-    val count = outputCount[0].toInt().coerceAtMost(outputBoxes[0].size)
-
-    for (i in 0 until count) {
-        val box = outputBoxes[0][i]
-        val ymin = box[0]
-        val xmin = box[1]
-        val ymax = box[2]
-        val xmax = box[3]
-
-        // 创建归一化的 RectF(left, top, right, bottom)
-        val rect = RectF(xmin, ymin, xmax, ymax)
-
-        // 获取类别索引、标签和分数
-        val classIndex = outputClasses[0][i]
-        val label = labels.getOrNull(classIndex.toInt()) ?: "Unknown"
-        val score = outputScores[0][i]
-
-        detections += Detection(rect, label, score)
-    }
-    return detections
 }

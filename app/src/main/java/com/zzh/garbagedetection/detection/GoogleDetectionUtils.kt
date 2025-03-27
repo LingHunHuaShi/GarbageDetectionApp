@@ -19,7 +19,7 @@ object GoogleDetectionConstants {
     const val INPUT_SIZE = 320
 }
 
-fun detectImageGoogle(inputImage: Bitmap, context: Context): List<Detection> {
+fun detectImageGoogle(inputImage: Bitmap, threshold:Float, context: Context): List<Detection> {
     val modelBuffer = FileUtil.loadMappedFile(context, GoogleDetectionConstants.MODEL_PATH)
     var tensorImage = TensorImage(GoogleDetectionConstants.INPUT_DTYPE)
     tensorImage.load(inputImage)
@@ -79,7 +79,8 @@ fun detectImageGoogle(inputImage: Bitmap, context: Context): List<Detection> {
         outputClasses = outputClasses,
         outputScores = outputScores,
         outputCount = outputCount,
-        labels = listOf("可回收垃圾","有害垃圾","湿垃圾","干垃圾")
+        labels = listOf("可回收垃圾","有害垃圾","湿垃圾","干垃圾"),
+        threshold = threshold
     )
     interpreter.close()
     return detectionList
@@ -90,27 +91,30 @@ fun mapOutputsToGoogleDetections(
     outputClasses: Array<FloatArray>,
     outputScores: Array<FloatArray>,
     outputCount: FloatArray,
-    labels: List<String>
+    labels: List<String>,
+    threshold: Float
 ): List<Detection> {
     val detections = mutableListOf<Detection>()
     val count = outputCount[0].toInt().coerceAtMost(outputBoxes[0].size)
 
     for (i in 0 until count) {
-        val box = outputBoxes[0][i]
-        val ymin = box[0]
-        val xmin = box[1]
-        val ymax = box[2]
-        val xmax = box[3]
-
-        // 创建归一化的 RectF(left, top, right, bottom)
-        val rect = RectF(xmin, ymin, xmax, ymax)
-
-        // 获取类别索引、标签和分数
-        val classIndex = outputClasses[0][i]
-        val label = labels.getOrNull(classIndex.toInt()) ?: "Unknown"
         val score = outputScores[0][i]
+        if (score >= threshold){
+            val box = outputBoxes[0][i]
+            val ymin = box[0]
+            val xmin = box[1]
+            val ymax = box[2]
+            val xmax = box[3]
 
-        detections += Detection(rect, label, score)
+            // 创建归一化的 RectF(left, top, right, bottom)
+            val rect = RectF(xmin, ymin, xmax, ymax)
+
+            // 获取类别索引、标签和分数
+            val classIndex = outputClasses[0][i]
+            val label = labels.getOrNull(classIndex.toInt()) ?: "Unknown"
+
+            detections += Detection(rect, label, score)
+        }
     }
     return detections
 }

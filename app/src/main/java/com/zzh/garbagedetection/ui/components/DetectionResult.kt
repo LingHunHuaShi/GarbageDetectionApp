@@ -27,7 +27,6 @@ import androidx.core.graphics.scale
 fun ScaledDetectionImage(
     bitmap: Bitmap,
     detections: List<Detection>,
-    threshold: Float,
     modifier: Modifier = Modifier
 ) {
     // 获取屏幕宽度（px）
@@ -65,25 +64,24 @@ fun ScaledDetectionImage(
                 textSize = 32f
             }
             detections.forEach { det ->
-                if (det.score >= threshold) {
-                    val l = det.boundingBox.left * size.width
-                    val t = det.boundingBox.top * size.height
-                    val r = det.boundingBox.right * size.width
-                    val b = det.boundingBox.bottom * size.height
+                val l = det.boundingBox.left * size.width
+                val t = det.boundingBox.top * size.height
+                val r = det.boundingBox.right * size.width
+                val b = det.boundingBox.bottom * size.height
 
-                    drawRect(
-                        topLeft = Offset(l, t),
-                        size = Size(r - l, b - t),
-                        style = Stroke(width = stroke),
-                        color = Color.Red
-                    )
-                    drawContext.canvas.nativeCanvas.drawText(
-                        "${det.label} ${(det.score * 100).toInt()}%",
-                        l,
-                        t - stroke,
-                        textPaint
-                    )
-                }
+                drawRect(
+                    topLeft = Offset(l, t),
+                    size = Size(r - l, b - t),
+                    style = Stroke(width = stroke),
+                    color = Color.Red
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    "${det.label} ${(det.score * 100).toInt()}%",
+                    l,
+                    t - stroke,
+                    textPaint
+                )
+
             }
             Log.d("Detection Res Drawing", "ScaledDetectionImage: Detection drawing done")
         }

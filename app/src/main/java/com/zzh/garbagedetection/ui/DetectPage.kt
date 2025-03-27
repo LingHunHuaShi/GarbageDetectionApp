@@ -47,6 +47,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Modifier = Modifier) {
     val modelName = viewModel.modelName.collectAsState().value
+    val threshold = viewModel.threshold.collectAsState().value
     val context = LocalContext.current
     var displayImage by remember { mutableStateOf<Bitmap?>(null) }
     var detectionList by remember { mutableStateOf(listOf<Detection>()) }
@@ -71,8 +72,8 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
         detectBtnOnClick = {
             scope.launch(Dispatchers.Default) {
                 val results = when(modelName) {
-                    YOLO.label -> detectImageYolo(image, context)
-                    GOOGLE.label -> detectImageGoogle(image, context)
+                    YOLO.label -> detectImageYolo(inputImage = image, threshold = threshold, context = context)
+                    GOOGLE.label -> detectImageGoogle(inputImage = image, threshold = threshold, context = context)
                     else -> emptyList()
                 }
                 withContext(Dispatchers.Main) {
@@ -122,7 +123,6 @@ fun DetectPage(
         ScaledDetectionImage(
             inputImage,
             detectionList,
-            0.3f,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         Box(modifier = Modifier.weight(1f))

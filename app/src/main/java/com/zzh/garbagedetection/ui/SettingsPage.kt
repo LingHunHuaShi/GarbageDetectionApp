@@ -1,5 +1,6 @@
 package com.zzh.garbagedetection.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
@@ -15,6 +17,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,11 +50,23 @@ sealed class SettingItem {
         val selected: String,
         val onSelect: (String) -> Unit
     ) : SettingItem()
+
+    data class TextItem(
+        val key: String,
+        val title: String,
+        val textContent: String,
+        val textType: KeyboardType,
+        val onTextChange: (String) -> Unit
+    ) : SettingItem()
 }
 
 @Composable
 fun SettingsPageContainer(modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel()) {
     val modelName by viewModel.modelName.collectAsState()
+    val threshold by viewModel.threshold.collectAsState()
+
+    var switchTest by remember{ mutableStateOf(false)}
+
     val modelSetting = SettingItem.DropdownItem(
         key = "model_name",
         title = "推理模型",
@@ -58,7 +74,26 @@ fun SettingsPageContainer(modifier: Modifier = Modifier, viewModel: SettingsView
         selected = modelName,
         onSelect = viewModel::setModelName
     )
-    val settingItems = listOf(modelSetting)
+
+    val thresholdSetting = SettingItem.TextItem(
+        key = "threshold",
+        title = "置信度阈值",
+        textContent = threshold.toString(),
+        textType = KeyboardType.Number,
+        onTextChange = { threshold ->
+            viewModel.setThreshold(threshold.toFloat())
+            Log.d("Settings Page", "threshold number: $threshold")
+        }
+    )
+
+    val switchTestSetting = SettingItem.SwitchItem(
+        key = "switch_test",
+        title = "测试",
+        checked = switchTest,
+        onToggle = {switchTest = !switchTest}
+    )
+
+    val settingItems = listOf(modelSetting, thresholdSetting, switchTestSetting)
     SettingsPage(settingItems)
 }
 
@@ -71,6 +106,7 @@ fun SettingsPage(settingItemList: List<SettingItem>) {
             when(item) {
                 is SettingItem.SwitchItem -> SwitchRow(item)
                 is SettingItem.DropdownItem -> DropdownRow(item)
+                is SettingItem.TextItem -> TextRow(item)
             }
             HorizontalDivider(Modifier
                 .fillMaxWidth()
@@ -129,6 +165,32 @@ private fun DropdownRow(item: SettingItem.DropdownItem) {
             }
         }
     }
+}
+
+@Composable
+fun TextRow(item: SettingItem.TextItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = item.title, modifier = Modifier.weight(1f))
+        OutlinedTextField(
+            value = item.textContent,
+            onValueChange = item.onTextChange,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = item.textType),
+            modifier = Modifier.weight(0.35f)
+        )
+    }
+}
+
+@Preview
+@Composable
+fun TextRowPreview() {
+    TextRow(SettingItem.TextItem("", "置信度阈值", "", KeyboardType.Number, {}))
+
 }
 
 

@@ -1,6 +1,7 @@
 package com.zzh.garbagedetection.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
@@ -9,4 +10,5 @@ val Context.dataStore by preferencesDataStore(SETTINGS_PREFS_KEY)
 
 object SettingsPreferences {
     val KEY_MODEL_NAME = stringPreferencesKey("model_name")
+    val KEY_THRESHOLD = floatPreferencesKey("threshold")
 }
