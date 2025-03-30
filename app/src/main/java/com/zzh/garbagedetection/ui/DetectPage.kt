@@ -2,12 +2,15 @@ package com.zzh.garbagedetection.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
@@ -52,6 +55,20 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
     var displayImage by remember { mutableStateOf<Bitmap?>(null) }
     var detectionList by remember { mutableStateOf(listOf<Detection>()) }
 
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) {
+            Log.d("Photo taker launcher", "Successfully taken photo!")
+            displayImage = it
+        }
+    val photosLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let {
+                displayImage = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    BitmapFactory.decodeStream(inputStream)
+                }
+            }
+        }
+
     val scope = rememberCoroutineScope()
 
     // Launch once on composition
@@ -63,32 +80,44 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
         }
     }
 
-    // Until loaded, show a placeholder
-    val image = displayImage ?: return LoadingIndicator()
+    if (displayImage != null) {
+        DetectPage(
+            displayImage!!,
+            detectionList,
+            detectBtnOnClick = {
+                scope.launch(Dispatchers.Default) {
+                    val results = when (modelName) {
+                        YOLO.label -> detectImageYolo(
+                            inputImage = displayImage!!,
+                            threshold = threshold,
+                            context = context
+                        )
 
-    DetectPage(
-        image,
-        detectionList,
-        detectBtnOnClick = {
-            scope.launch(Dispatchers.Default) {
-                val results = when(modelName) {
-                    YOLO.label -> detectImageYolo(inputImage = image, threshold = threshold, context = context)
-                    GOOGLE.label -> detectImageGoogle(inputImage = image, threshold = threshold, context = context)
-                    else -> emptyList()
+                        GOOGLE.label -> detectImageGoogle(
+                            inputImage = displayImage!!,
+                            threshold = threshold,
+                            context = context
+                        )
+
+                        else -> emptyList()
+                    }
+                    withContext(Dispatchers.Main) {
+                        detectionList = results
+                    }
                 }
-                withContext(Dispatchers.Main) {
-                    detectionList = results
-                }
-            }
-        },
-        cameraBtnOnClick = {
+            },
+            cameraBtnOnClick = {
+                cameraLauncher.launch(null)
+            },
+            photoBtnOnClick = {
+                photosLauncher.launch("image/*")
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+    } else {
+        LoadingIndicator()
+    }
 
-        },
-        photoBtnOnClick = {
-
-        },
-        modifier = Modifier.fillMaxSize()
-    )
 }
 
 @Composable
@@ -119,12 +148,18 @@ fun DetectPage(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(16.dp)
         )
-        Box(modifier = Modifier.height(120.dp))
-        ScaledDetectionImage(
-            inputImage,
-            detectionList,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
+        Box(modifier = Modifier.weight(1f))
+        Row {
+            Box(modifier = Modifier.weight(1f))
+            ScaledDetectionImage(
+                inputImage,
+                detectionList,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .heightIn(max = 380.dp)
+            )
+            Box(modifier = Modifier.weight(1f))
+        }
         Box(modifier = Modifier.weight(1f))
         Row(
             modifier = Modifier
@@ -150,7 +185,6 @@ fun DetectPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .padding(bottom = 48.dp)
         ) {
             Text("检测")
         }

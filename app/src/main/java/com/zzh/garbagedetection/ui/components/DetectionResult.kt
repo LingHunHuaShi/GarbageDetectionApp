@@ -1,12 +1,15 @@
 package com.zzh.garbagedetection.ui.components
 
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,13 +40,10 @@ fun ScaledDetectionImage(
     val targetWidthPx = with(density) { screenWidth.toPx() }.toInt()
     val targetHeightPx = (targetWidthPx / aspect).toInt()
 
-    val resizedBitmap = bitmap.scale(targetWidthPx, targetHeightPx)
-
-    // 保持图片比例
+    var resizedBitmap = bitmap.scale(targetWidthPx, targetHeightPx)
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
             .aspectRatio(aspect)
     ) {
         Image(
@@ -54,11 +54,6 @@ fun ScaledDetectionImage(
         )
         Canvas(modifier = Modifier.matchParentSize()) {
             val stroke = 4.dp.toPx()
-//            val paint = Paint().apply {
-//                color = Color.Red
-//                style = PaintingStyle.Stroke
-//                strokeWidth = stroke
-//            }
             val textPaint = android.graphics.Paint().apply {
                 color = android.graphics.Color.RED
                 textSize = 32f
@@ -68,7 +63,6 @@ fun ScaledDetectionImage(
                 val t = det.boundingBox.top * size.height
                 val r = det.boundingBox.right * size.width
                 val b = det.boundingBox.bottom * size.height
-
                 drawRect(
                     topLeft = Offset(l, t),
                     size = Size(r - l, b - t),
@@ -81,7 +75,6 @@ fun ScaledDetectionImage(
                     t - stroke,
                     textPaint
                 )
-
             }
             Log.d("Detection Res Drawing", "ScaledDetectionImage: Detection drawing done")
         }
