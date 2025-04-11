@@ -3,6 +3,7 @@ package com.zzh.garbagedetection.ui
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -18,7 +19,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.scale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zzh.garbagedetection.R
 import com.zzh.garbagedetection.data.SettingsViewModel
@@ -54,6 +53,9 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
     val context = LocalContext.current
     var displayImage by remember { mutableStateOf<Bitmap?>(null) }
     var detectionList by remember { mutableStateOf(listOf<Detection>()) }
+    var isDetecting by remember { mutableStateOf(false) }
+    var isDetectionDone by remember { mutableStateOf(false) }
+
 
     val cameraLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) {
@@ -71,60 +73,48 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
 
     val scope = rememberCoroutineScope()
 
-    // Launch once on composition
-    LaunchedEffect(Unit) {
-        scope.launch(Dispatchers.IO) {
-            val decoded = BitmapFactory.decodeResource(context.resources, R.drawable.garbage02)
-            val scaled = decoded.scale(1200, 900)
-            withContext(Dispatchers.Main) { displayImage = scaled }
-        }
-    }
+    DetectPage(
+        displayImage,
+        detectionList,
+        isDetecting,
+        detectBtnOnClick = {
+            isDetecting = true
+            scope.launch(Dispatchers.Default) {
+                val results = when (modelName) {
+                    YOLO.label -> detectImageYolo(
+                        inputImage = displayImage!!,
+                        threshold = threshold,
+                        context = context
+                    )
 
-    if (displayImage != null) {
-        DetectPage(
-            displayImage!!,
-            detectionList,
-            detectBtnOnClick = {
-                scope.launch(Dispatchers.Default) {
-                    val results = when (modelName) {
-                        YOLO.label -> detectImageYolo(
-                            inputImage = displayImage!!,
-                            threshold = threshold,
-                            context = context
-                        )
+                    GOOGLE.label -> detectImageGoogle(
+                        inputImage = displayImage!!,
+                        threshold = threshold,
+                        context = context
+                    )
 
-                        GOOGLE.label -> detectImageGoogle(
-                            inputImage = displayImage!!,
-                            threshold = threshold,
-                            context = context
-                        )
-
-                        else -> emptyList()
-                    }
-                    withContext(Dispatchers.Main) {
-                        detectionList = results
-                    }
+                    else -> emptyList()
                 }
-            },
-            cameraBtnOnClick = {
-                cameraLauncher.launch(null)
-            },
-            photoBtnOnClick = {
-                photosLauncher.launch("image/*")
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-    } else {
-        LoadingIndicator()
-    }
-
+                withContext(Dispatchers.Main) {
+                    detectionList = results
+                    isDetecting = false
+                }
+            }
+        },
+        cameraBtnOnClick = {
+            cameraLauncher.launch(null)
+        },
+        photoBtnOnClick = {
+            photosLauncher.launch("image/*")
+        },
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
 fun LoadingIndicator() {
     Box(
-        modifier = Modifier
-            .fillMaxSize(),
+        modifier = Modifier,
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator()
@@ -133,13 +123,16 @@ fun LoadingIndicator() {
 
 @Composable
 fun DetectPage(
-    inputImage: Bitmap,
+    inputImage: Bitmap?,
     detectionList: List<Detection>,
+    isDetecting: Boolean,
     detectBtnOnClick: () -> Unit,
     cameraBtnOnClick: () -> Unit,
     photoBtnOnClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val localContext = LocalContext.current
+
     Column(
         modifier = modifier
     ) {
@@ -151,16 +144,29 @@ fun DetectPage(
         Box(modifier = Modifier.weight(1f))
         Row {
             Box(modifier = Modifier.weight(1f))
-            ScaledDetectionImage(
-                inputImage,
-                detectionList,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .heightIn(max = 380.dp)
-            )
+            if (isDetecting){
+                LoadingIndicator()
+            } else {
+                if (inputImage != null) {
+                    ScaledDetectionImage(
+                        inputImage,
+                        detectionList,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .heightIn(max = 380.dp)
+                    )
+                }
+            }
             Box(modifier = Modifier.weight(1f))
         }
         Box(modifier = Modifier.weight(1f))
+        Button(
+            onClick = {},
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 100.dp)
+        ) {
+            Text("获取回收建议")
+        }
+        Box(modifier = Modifier.weight(0.5f))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,7 +187,13 @@ fun DetectPage(
             }
         }
         Button(
-            onClick = detectBtnOnClick,
+            onClick = {
+                if (inputImage == null) {
+                    Toast.makeText(localContext, "请先拍摄或选择图片!", Toast.LENGTH_SHORT).show()
+                } else {
+                    detectBtnOnClick()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -197,9 +209,11 @@ fun DetectPage(
 fun DetectPagePreview() {
     val exampleImage = ImageBitmap.imageResource(R.drawable.garbage02).asAndroidBitmap()
     val detectionList = listOf<Detection>()
+    val isShowLoading = false
     DetectPage(
         exampleImage,
         detectionList,
+        isShowLoading,
         detectBtnOnClick = {},
         cameraBtnOnClick = {},
         photoBtnOnClick = {},

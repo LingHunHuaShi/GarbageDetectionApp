@@ -78,12 +78,14 @@ dependencies {
     implementation(libs.tensorflow.lite.support)
     implementation(libs.tensorflow.lite.metadata)
     implementation(libs.tensorflow.lite.gpu)
-//    implementation ("com.google.ai.edge.litert:litert-gpu:1.2.0")
     implementation (libs.tensorflow.lite.gpu.delegate.plugin)
     implementation (libs.tensorflow.lite.task.vision)
-//
-    implementation (libs.tensorflow.lite )                   // 或你正在使用的版本
+    implementation (libs.tensorflow.lite )
     implementation (libs.tensorflow.lite.select.tf.ops)
 
-
+    // Retrofit
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    // Gson
+    implementation(libs.gson)
 }
