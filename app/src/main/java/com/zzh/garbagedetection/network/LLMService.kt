@@ -1,22 +1,37 @@
 package com.zzh.garbagedetection.network
 
 import com.google.gson.annotations.SerializedName
-import okhttp3.Call
-import okhttp3.RequestBody
+import retrofit2.Call
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
+import kotlin.getValue
 
 interface LLMService {
-
     @Headers("Content-Type: application/json")
-    @POST
+    @POST("chat/completions")
     fun getLlmResponse(
         @Header("Authorization") authHead: String,
+
         @Body postBody: PostBody
-    )
+    ): Call<PostResponse>
 }
+
+object RetrofitClient{
+    private const val BASE_URL = "https://api.aigc369.com/v1/"
+    val llmService: LLMService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(LLMService::class.java)
+    }
+}
+
 
 data class PostBody(
     @SerializedName("model")
@@ -69,7 +84,7 @@ data class ResponseMessage(
     val index: String,
 
     @SerializedName("message")
-    val message: List<ResponseMessageContent>
+    val message: ResponseMessageContent
 )
 
 data class ResponseMessageContent(

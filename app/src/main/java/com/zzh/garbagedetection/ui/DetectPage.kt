@@ -2,6 +2,7 @@ package com.zzh.garbagedetection.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,9 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -42,9 +46,14 @@ import com.zzh.garbagedetection.data.ModelNameEnums.YOLO
 import com.zzh.garbagedetection.data.ModelNameEnums.GOOGLE
 import com.zzh.garbagedetection.detection.detectImageGoogle
 import com.zzh.garbagedetection.detection.detectImageYolo
+import com.zzh.garbagedetection.ui.components.ExpandableButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import androidx.core.graphics.scale
 
 @Composable
 fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Modifier = Modifier) {
@@ -77,6 +86,7 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
         displayImage,
         detectionList,
         isDetecting,
+        isDetectionDone,
         detectBtnOnClick = {
             isDetecting = true
             scope.launch(Dispatchers.Default) {
@@ -98,6 +108,7 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
                 withContext(Dispatchers.Main) {
                     detectionList = results
                     isDetecting = false
+                    isDetectionDone = true
                 }
             }
         },
@@ -106,6 +117,9 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
         },
         photoBtnOnClick = {
             photosLauncher.launch("image/*")
+        },
+        detailBtnOnClick = {
+
         },
         modifier = Modifier.fillMaxSize()
     )
@@ -126,15 +140,17 @@ fun DetectPage(
     inputImage: Bitmap?,
     detectionList: List<Detection>,
     isDetecting: Boolean,
+    isDetectionDone: Boolean,
     detectBtnOnClick: () -> Unit,
     cameraBtnOnClick: () -> Unit,
     photoBtnOnClick: () -> Unit,
+    detailBtnOnClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val localContext = LocalContext.current
 
     Column(
-        modifier = modifier
+        modifier = modifier.verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "检测",
@@ -159,14 +175,23 @@ fun DetectPage(
             }
             Box(modifier = Modifier.weight(1f))
         }
-        Box(modifier = Modifier.weight(1f))
-        Button(
-            onClick = {},
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 100.dp)
-        ) {
-            Text("获取回收建议")
-        }
-        Box(modifier = Modifier.weight(0.5f))
+//        Box(modifier = Modifier.weight(1f))
+//        Button(
+//            onClick = {
+//                if (isDetectionDone) {
+//                    detailBtnOnClick()
+//                } else {
+//                    Toast.makeText(localContext, "请先完成垃圾检测", Toast.LENGTH_SHORT).show()
+//                }
+//            },
+//            modifier = Modifier.fillMaxWidth().padding(horizontal = 100.dp)
+//        ) {
+//            Text("获取回收建议")
+//        }
+        ExpandableButton(
+            imageBase64 = bitmap2base64(inputImage)
+        )
+        Box(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -203,6 +228,41 @@ fun DetectPage(
     }
 }
 
+fun bitmap2base64(inputImage: Bitmap?): String {
+    val TAG = "bitmap2base64"
+
+    if (inputImage == null)
+        return ""
+    val maxHeight = 640
+    val maxWidth = 640
+
+    var resizedImage: Bitmap = inputImage
+//    runBlocking {
+//        launch(Dispatchers.Default) {
+            val width = inputImage.width
+            val height = inputImage.height
+
+            val scaleWidth = maxWidth.toFloat() / width
+            val scaleHeight = maxHeight.toFloat() / height
+
+            val scaleFactor = if (scaleWidth < scaleHeight) scaleWidth else scaleHeight
+
+            val newWidth = (width * scaleFactor).toInt()
+            val newHeight = (height * scaleFactor).toInt()
+
+            Log.d(TAG, "new size: $newWidth * $newHeight")
+
+            resizedImage = inputImage.scale(newWidth, newHeight)
+//        }
+        Log.d(TAG, "Bitmap size(run block): ${resizedImage.width} * ${resizedImage.height}")
+//    }
+    val byteArrayOutputStream = ByteArrayOutputStream()
+    Log.d(TAG, "Bitmap size: ${resizedImage.width} * ${resizedImage.height}")
+    resizedImage.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
+    val bitmapBytes = byteArrayOutputStream.toByteArray()
+    return Base64.encodeToString(bitmapBytes, Base64.DEFAULT)
+}
+
 
 @Preview
 @Composable
@@ -210,13 +270,16 @@ fun DetectPagePreview() {
     val exampleImage = ImageBitmap.imageResource(R.drawable.garbage02).asAndroidBitmap()
     val detectionList = listOf<Detection>()
     val isShowLoading = false
+    val isShowDetailBtn = false
     DetectPage(
         exampleImage,
         detectionList,
         isShowLoading,
+        isShowDetailBtn,
         detectBtnOnClick = {},
         cameraBtnOnClick = {},
         photoBtnOnClick = {},
+        detailBtnOnClick = {},
         Modifier.fillMaxSize()
     )
 }
