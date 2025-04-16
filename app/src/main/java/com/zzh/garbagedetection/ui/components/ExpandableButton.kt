@@ -8,6 +8,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
 import com.zzh.garbagedetection.network.ImageUrl
 import com.zzh.garbagedetection.network.MessageContent
 import com.zzh.garbagedetection.network.ModelMessage
@@ -31,8 +33,11 @@ import com.zzh.garbagedetection.network.PostBody
 import com.zzh.garbagedetection.network.PostResponse
 import com.zzh.garbagedetection.network.RetrofitClient
 import com.zzh.garbagedetection.network.assistantPrompt
+import com.zzh.garbagedetection.network.createPostBodyUsingDefaultPrompt
 import com.zzh.garbagedetection.ui.LoadingIndicator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -51,6 +56,9 @@ fun ExpandableButton(
     val TOKEN = "Bearer sk-JHYRmWW4BROETYKBMCXp8sNz4aTVZUTFCfX8bcGd0nGG1Bf2"
 
     val localContext = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val gson = Gson()
 
     AnimatedVisibility(
         visible = isExpanded,
@@ -64,11 +72,13 @@ fun ExpandableButton(
                 .background(Color.LightGray, shape = RoundedCornerShape(8.dp))
                 .padding(16.dp)
         ) {
-            text?.let {
-                if (!isLoading){
-                    Text(text = it)
-                } else {
+            if (!isLoading) {
+                Text(text = text?:"")
+            } else {
+                Row {
+                    Box(modifier = Modifier.weight(1f))
                     LoadingIndicator()
+                    Box(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -86,60 +96,39 @@ fun ExpandableButton(
                 } else {
                     if (!isExpanded) {
                         isLoading = true
+                        isExpanded = true
 
-                        val postBody = PostBody(
-                            modelName = "gpt-4o",
-                            messages = listOf(
-                                ModelMessage(
-                                    role = "user",
-                                    content = listOf(
-                                        MessageContent(
-                                            type = "text",
-                                            content = assistantPrompt,
-                                            imageUrl = null
-                                        ),
-                                        MessageContent(
-                                            type = "image",
-                                            content = null,
-                                            imageUrl = ImageUrl(
-                                                url = "data:image/jpeg;base64,$imageBase64"
-                                            )
-                                        )
+                        val postBody = createPostBodyUsingDefaultPrompt(imageBase64)
+                        Log.d(TAG, "Request body: ${gson.toJson(postBody)}")
+
+                        coroutineScope.launch {
+                            try {
+                                val response = withContext(Dispatchers.IO) {
+                                    val res = RetrofitClient.llmService.getLlmResponse(
+                                        authHead = TOKEN,
+                                        postBody = postBody
                                     )
-                                )
-                            )
-                        )
-
-                        try {
-                            val call = RetrofitClient.llmService.getLlmResponse(
-                                authHead = TOKEN,
-                                postBody = postBody
-                            )
-                            isExpanded = true
-                            call.enqueue(object : Callback<PostResponse> {
-                                override fun onResponse(
-                                    p0: Call<PostResponse?>,
-                                    p1: Response<PostResponse?>
-                                ) {
-                                    val body = p1.body()
-                                    text = body?.choices[0]?.message?.content
                                     isLoading = false
+                                    res
                                 }
-
-                                override fun onFailure(
-                                    p0: Call<PostResponse?>,
-                                    p1: Throwable
-                                ) {
-                                    text = p1.message
+                                withContext(Dispatchers.Main) {
+                                    if (response.isSuccessful) {
+                                        val body = response.body()
+                                        text = body?.choices[0]?.message?.content
+                                        Log.d(TAG, "Request success: code:${response.code()}")
+                                    } else {
+                                        text = "Error: ${response.message()}"
+                                        Log.e(TAG, "Request failed: code:${response.code()}, message:${response.message()}")
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Log.e(TAG, "Request Exception: ${e.message}")
                                     isLoading = false
+                                    text = "Error: ${e.message}"
                                 }
-                            })
-
-                        } catch (e: Exception) {
-                            Log.d(TAG, "ExpandableButton: ${e.message}")
-                            text = "Error: ${e.message}"
+                            }
                         }
-
                     } else {
                         isExpanded = false
                         text = null
