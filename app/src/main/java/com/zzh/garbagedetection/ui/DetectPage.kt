@@ -114,9 +114,11 @@ fun DetectPageContainer(viewModel: SettingsViewModel = viewModel(), modifier: Mo
         },
         cameraBtnOnClick = {
             cameraLauncher.launch(null)
+            isDetectionDone = false
         },
         photoBtnOnClick = {
             photosLauncher.launch("image/*")
+            isDetectionDone = false
         },
         detailBtnOnClick = {
 

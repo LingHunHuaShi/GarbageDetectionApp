@@ -27,7 +27,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.zzh.garbagedetection.network.ImageUrl
-import com.zzh.garbagedetection.network.MessageContent
 import com.zzh.garbagedetection.network.ModelMessage
 import com.zzh.garbagedetection.network.PostBody
 import com.zzh.garbagedetection.network.PostResponse
@@ -53,8 +52,8 @@ fun ExpandableButton(
     var text by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    val TOKEN = "Bearer sk-JHYRmWW4BROETYKBMCXp8sNz4aTVZUTFCfX8bcGd0nGG1Bf2"
-
+//    val TOKEN = "Bearer sk-JHYRmWW4BROETYKBMCXp8sNz4aTVZUTFCfX8bcGd0nGG1Bf2"
+    val TOKEN = "Bearer sk-uadRZjrbvhe6L7nANkrU8gscMBtTQ76O0gH6Q5DVuoUh9wqD"
     val localContext = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -98,6 +97,8 @@ fun ExpandableButton(
                         isLoading = true
                         isExpanded = true
 
+                        var responseCode: Int = 0
+
                         val postBody = createPostBodyUsingDefaultPrompt(imageBase64)
                         Log.d(TAG, "Request body: ${gson.toJson(postBody)}")
 
@@ -112,20 +113,23 @@ fun ExpandableButton(
                                     res
                                 }
                                 withContext(Dispatchers.Main) {
+                                    responseCode = response.code()
                                     if (response.isSuccessful) {
                                         val body = response.body()
                                         text = body?.choices[0]?.message?.content
                                         Log.d(TAG, "Request success: code:${response.code()}")
                                     } else {
-                                        text = "Error: ${response.message()}"
-                                        Log.e(TAG, "Request failed: code:${response.code()}, message:${response.message()}")
+                                        val errorBody = response.errorBody()
+                                        val errorMsg = errorBody?.string()
+                                        text = "Error: Code $responseCode, $errorMsg"
+                                        Log.e(TAG, "Request failed: code:$responseCode, message:$errorMsg")
                                     }
                                 }
                             } catch (e: Exception) {
                                 withContext(Dispatchers.Main) {
                                     Log.e(TAG, "Request Exception: ${e.message}")
                                     isLoading = false
-                                    text = "Error: ${e.message}"
+                                    text = "Error: Code $responseCode, ${e.message}"
                                 }
                             }
                         }

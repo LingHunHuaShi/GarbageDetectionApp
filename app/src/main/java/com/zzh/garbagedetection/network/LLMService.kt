@@ -24,7 +24,8 @@ interface LLMService {
 }
 
 object RetrofitClient{
-    private const val BASE_URL = "https://api.aigc369.com/v1/"
+//    private const val BASE_URL = "https://api.aigc369.com/v1/"
+    private const val BASE_URL = "https://api.moonshot.cn/v1/"
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(120, TimeUnit.SECONDS)
@@ -43,22 +44,21 @@ object RetrofitClient{
 
 fun createPostBodyUsingDefaultPrompt(imageBase64: String): PostBody {
     val postBody = PostBody(
-        modelName = "gpt-4o",
+//        modelName = "gpt-4o",
+        modelName = "moonshot-v1-8k-vision-preview",
         messages = listOf(
+            SystemMessage(
+                content = assistantPrompt
+            ),
             ModelMessage(
-                role = "user",
                 content = listOf(
-                    MessageContent(
-                        type = "text",
-                        content = assistantPrompt,
-                        imageUrl = null
-                    ),
-                    MessageContent(
-                        type = "image_url",
-                        content = null,
+                    ImageContent(
                         imageUrl = ImageUrl(
                             url = "data:image/jpeg;base64,$imageBase64"
                         )
+                    ),
+                    TextContent(
+                        text = "请分析这张图片",
                     )
                 )
             )
@@ -73,7 +73,7 @@ data class PostBody(
     val modelName: String,
 
     @SerializedName("messages")
-    val messages: List<ModelMessage>
+    val messages: List<Message>
 )
 
 data class PostResponse(
@@ -90,24 +90,42 @@ data class PostResponse(
     val choices: List<ResponseMessage>
 )
 
-data class ModelMessage(
+open class Message(
     @SerializedName("role")
-    val role: String,
-
-    @SerializedName("content")
-    val content: List<MessageContent>,
+    val role: String
 )
 
-data class MessageContent(
+
+data class SystemMessage(
+    @SerializedName("content")
+    val content: String,
+) : Message("system")
+
+data class ModelMessage(
+    @SerializedName("content")
+    val content: List<Content>,
+) : Message("user")
+
+
+data class SystemContent(
+    @SerializedName("content")
+    val content: String
+)
+
+open class Content(
     @SerializedName("type")
-    val type: String,
-
-    @SerializedName("content")
-    val content: String?,
-
-    @SerializedName("image_url")
-    val imageUrl: ImageUrl?
+    val type: String
 )
+
+data class ImageContent(
+    @SerializedName("image_url")
+    val imageUrl: ImageUrl
+) : Content("image_url")
+
+data class TextContent(
+    @SerializedName("text")
+    val text: String
+) : Content("text")
 
 data class ImageUrl(
     @SerializedName("url")
